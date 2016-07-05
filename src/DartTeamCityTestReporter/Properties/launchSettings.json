@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DartTeamCityTestReporter": {
+      "commandName": "Project",
+      "commandLineArgs": "-dart dart.exe D:/GitHub/LiveScoring/Client/LiveScoring/test/tests.dart"
+    }
+  }
+}
