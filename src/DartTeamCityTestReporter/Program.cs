@@ -26,14 +26,15 @@ namespace DartTeamCityTestReporter
     public class Program
     {
         private static bool _seenFirstGroup;
-        private static readonly Dictionary<int,string> _testNames = new Dictionary<int, string>();
+        private static readonly Dictionary<int, string> _testNames = new Dictionary<int, string>();
         private static readonly List<Suite> _suites = new List<Suite>();
 
-        public static void Main(string[] args)
+        public static void Main( string[] args )
         {
             var parsedArguments = new ArgumentsParser().Parse( args );
 
             var testFile = parsedArguments[ "" ];
+            var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
 
             var processStartInfo = new ProcessStartInfo
             {
@@ -41,7 +42,7 @@ namespace DartTeamCityTestReporter
                 Arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""file:\\\C:\Program Files\Dart\dart-sdk\bin\snapshots\pub.dart.snapshot"" run test:test -r json -p dartium {testFile}",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                WorkingDirectory = @"D:\GitHub\LiveScoring\Client\LiveScoring"
+                WorkingDirectory = workingDirectory
             };
             using ( var process = Process.Start( processStartInfo ) )
             {
@@ -73,26 +74,33 @@ namespace DartTeamCityTestReporter
         private static void ParseTestId( string line )
         {
             var test = JsonConvert.DeserializeObject<TestId>( line );
+            if ( !_testNames.ContainsKey( test.testID ) )
+                return;
             var name = _testNames[ test.testID ];
             _testNames.Remove( test.testID );
 
+            if ( !string.IsNullOrEmpty( test.error ) )
+                Console.Write( test.error );
+
             if ( test.result != "success" )
-                Console.WriteLine( $"##teamcity[testFailed name='{name}']" );
-            Console.WriteLine( $"##teamcity[testFinished name='{name}' duration='{test.time}']" );
+                Console.WriteLine( $"##teamcity[testFailed name='{EscapeName( name )}']" );
+            Console.WriteLine( $"##teamcity[testFinished name='{EscapeName( name )}' duration='{test.time}']" );
 
             _suites.ForEach( x => x.TestsRemaining-- );
             foreach ( var suite in _suites.Where( x => x.TestsRemaining == 0 ).OrderByDescending( x => x.Order ).ToList() )
             {
                 _suites.Remove( suite );
-                Console.WriteLine( $"##teamcity[testSuiteFinished name='{suite.Name}']" );
+                Console.WriteLine( $"##teamcity[testSuiteFinished name='{EscapeName( suite.Name )}']" );
             }
         }
+
+        private static string EscapeName( string name ) => name.Replace( "'", "|'" );
 
         private static void ParseTest( string line )
         {
             var testLine = JsonConvert.DeserializeObject<TestLine>( line );
             _testNames.Add( testLine.test.id, testLine.test.name );
-            Console.WriteLine( $"##teamcity[testStarted name='{testLine.test.name}']" );
+            Console.WriteLine( $"##teamcity[testStarted name='{EscapeName( testLine.test.name )}' captureStandardOutput='true']" );
         }
 
         private static void ParseGroup( string line )
@@ -100,7 +108,7 @@ namespace DartTeamCityTestReporter
             var groupLine = JsonConvert.DeserializeObject<GroupLine>( line );
             var groupName = groupLine.group.name ?? "tests.dart";
 
-            Console.WriteLine( $"##teamcity[testSuiteStarted name='{groupName}']" );
+            Console.WriteLine( $"##teamcity[testSuiteStarted name='{EscapeName( groupName )}']" );
 
             _suites.Add( new Suite
             {
@@ -139,6 +147,8 @@ namespace DartTeamCityTestReporter
         public int testID { get; set; }
         public string result { get; set; }
         public int time { get; set; }
+        public string error { get; set; }
+        public string stackTrace { get; set; }
     }
 
     public class ArgumentsParser
