@@ -35,11 +35,12 @@ namespace DartTeamCityTestReporter
 
             var testFile = parsedArguments[ "" ];
             var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
+            var dartSdk = parsedArguments.ContainsKey( "dsdk" ) ? parsedArguments[ "dsdk" ] : @"file:\\\C:\Program Files\Dart\dart-sdk";
 
             var processStartInfo = new ProcessStartInfo
             {
                 FileName = "dart",
-                Arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""file:\\\C:\Program Files\Dart\dart-sdk\bin\snapshots\pub.dart.snapshot"" run test:test -r json -p dartium {testFile}",
+                Arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json -p dartium {testFile}",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 WorkingDirectory = workingDirectory
