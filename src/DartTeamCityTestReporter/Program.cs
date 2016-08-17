@@ -36,22 +36,35 @@ namespace DartTeamCityTestReporter
             var testFile = parsedArguments[ "" ];
             var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
             var dartSdk = parsedArguments.ContainsKey( "dsdk" ) ? parsedArguments[ "dsdk" ] : @"file:\\\C:\Program Files\Dart\dart-sdk";
+            var platform = parsedArguments.ContainsKey( "p" ) ? "-p " + parsedArguments[ "p" ] : String.Empty;
+
+            //testFile = "test\\test.dart";
+            //workingDirectory = @"D:/LiveScoring/LiveScoring/Server/FixtureStateBuilder";
+            //dartSdk = @"d:/dart/dart-sdk";
+
+            //testFile = @"test\tests.dart";
+            //platform = "-p dartium";
+            //workingDirectory = @"D:/LiveScoring/LiveScoring/Client/LiveScoring";
+
+            var arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json {platform} {testFile}";
+            Console.WriteLine("Running dart with following arguments: ");
+            Console.WriteLine(arguments);
+
 
             var processStartInfo = new ProcessStartInfo
             {
                 FileName = "dart",
-                Arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json -p dartium {testFile}",
+                Arguments = arguments,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                WorkingDirectory = workingDirectory
+                WorkingDirectory = workingDirectory,
             };
-            using ( var process = Process.Start( processStartInfo ) )
-            {
-                while ( !process.HasExited )
-                {
-                    ParseOutput( process.StandardOutput.ReadLine() );
-                }
-            }
+            var process = Process.Start( processStartInfo );
+            process.OutputDataReceived += ( sender, eventArgs ) => ParseOutput( eventArgs.Data );
+            process.BeginOutputReadLine();
+            process.WaitForExit();
+            Thread.Sleep( 1000 );
+
         }
 
         private static void ParseOutput( string line )
