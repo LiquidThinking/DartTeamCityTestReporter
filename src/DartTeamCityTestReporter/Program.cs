@@ -8,185 +8,127 @@ using Newtonsoft.Json;
 
 namespace DartTeamCityTestReporter
 {
-    public class Suite
-    {
-        private static int _order = 1;
+	public class Program
+	{
+		private static bool _seenFirstGroup;
+		private static readonly Dictionary<int, string> _testNames = new Dictionary<int, string>();
+		private static readonly List<Suite> _suites = new List<Suite>();
 
-        public Suite()
-        {
-            Order = _order++;
-        }
+		public static void Main( string[] args )
+		{
+			var parsedArguments = new ArgumentsParser().Parse( args );
 
-        public int Order { get; set; }
-        public int GroupId { get; set; }
-        public string Name { get; set; }
-        public int TestsRemaining { get; set; }
-    }
+			var testFile = parsedArguments[ "" ];
+			var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
+			var dartSdk = parsedArguments.ContainsKey( "dsdk" ) ? parsedArguments[ "dsdk" ] : @"file:\\\C:\Program Files\Dart\dart-sdk";
+			var platform = parsedArguments.ContainsKey( "p" ) ? "-p " + parsedArguments[ "p" ] : String.Empty;
 
-    public class Program
-    {
-        private static bool _seenFirstGroup;
-        private static readonly Dictionary<int, string> _testNames = new Dictionary<int, string>();
-        private static readonly List<Suite> _suites = new List<Suite>();
+			//testFile = "test\\test.dart";
+			//workingDirectory = @"D:/LiveScoring/LiveScoring/Server/FixtureStateBuilder";
+			//dartSdk = @"d:/dart/dart-sdk";
 
-        public static void Main( string[] args )
-        {
-            var parsedArguments = new ArgumentsParser().Parse( args );
+			//testFile = @"test\tests.dart";
+			//platform = "-p dartium";
+			//workingDirectory = @"D:/LiveScoring/LiveScoring/Client/LiveScoring";
 
-            var testFile = parsedArguments[ "" ];
-            var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
-            var dartSdk = parsedArguments.ContainsKey( "dsdk" ) ? parsedArguments[ "dsdk" ] : @"file:\\\C:\Program Files\Dart\dart-sdk";
-            var platform = parsedArguments.ContainsKey( "p" ) ? "-p " + parsedArguments[ "p" ] : String.Empty;
+			//dartSdk = @"d:/dart/dart-sdk";
+			//testFile = @"test\tests.dart";
+			//workingDirectory = @"D:/LiveScoring/LiveScoring/Packages/LiveScoringCore";
 
-            //testFile = "test\\test.dart";
-            //workingDirectory = @"D:/LiveScoring/LiveScoring/Server/FixtureStateBuilder";
-            //dartSdk = @"d:/dart/dart-sdk";
-
-            //testFile = @"test\tests.dart";
-            //platform = "-p dartium";
-            //workingDirectory = @"D:/LiveScoring/LiveScoring/Client/LiveScoring";
-
-            var arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json {platform} {testFile}";
-            Console.WriteLine("Running dart with following arguments: ");
-            Console.WriteLine(arguments);
+			var arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json {platform} {testFile}";
+			Console.WriteLine( "Running dart with following arguments: " );
+			Console.WriteLine( arguments );
 
 
-            var processStartInfo = new ProcessStartInfo
-            {
-                FileName = "dart",
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                WorkingDirectory = workingDirectory,
-            };
-            var process = Process.Start( processStartInfo );
-            process.OutputDataReceived += ( sender, eventArgs ) => ParseOutput( eventArgs.Data );
-            process.BeginOutputReadLine();
-            process.WaitForExit();
-            Thread.Sleep( 1000 );
+			var processStartInfo = new ProcessStartInfo
+			{
+				FileName = "dart",
+				Arguments = arguments,
+				RedirectStandardOutput = true,
+				RedirectStandardError = true,
+				WorkingDirectory = workingDirectory,
+			};
+			using ( var process = Process.Start( processStartInfo ) )
+			{
+				process.OutputDataReceived += ( sender, eventArgs ) => ParseOutput( eventArgs.Data );
+				process.BeginOutputReadLine();
+				process.WaitForExit();
+			}
+			Thread.Sleep( 1000 );
+		}
 
-        }
+		private static void ParseOutput( string line )
+		{
+			if ( line == null )
+				return;
 
-        private static void ParseOutput( string line )
-        {
-            if ( line == null )
-                return;
+			if ( !_seenFirstGroup && !line.StartsWith( "{\"group\"" ) && !line.Contains( "\"name\":null" ) )
+				return;
+			_seenFirstGroup = true;
 
-            if ( !_seenFirstGroup && !line.StartsWith( "{\"group\"" ) && !line.Contains( "\"name\":null" ) )
-                return;
-            _seenFirstGroup = true;
+			if ( line.StartsWith( "{\"group\"" ) )
+				ParseGroup( line );
+			else if ( line.StartsWith( "{\"test\"" ) )
+				ParseTest( line );
+			else if ( line.StartsWith( "{\"testID\"" ) )
+				ParseTestId( line );
+		}
 
-            if ( line.StartsWith( "{\"group\"" ) )
-                ParseGroup( line );
-            else if ( line.StartsWith( "{\"test\"" ) )
-                ParseTest( line );
-            else if ( line.StartsWith( "{\"testID\"" ) )
-                ParseTestId( line );
+		private static void ParseTestId( string line )
+		{
+			var test = JsonConvert.DeserializeObject<TestId>( line );
+			if ( !_testNames.ContainsKey( test.testID ) )
+				return;
+			var name = _testNames[ test.testID ];
 
-        }
+			var isFinished = !String.IsNullOrEmpty( test.error ) || test.result != null;
+			if ( isFinished )
+				_testNames.Remove( test.testID );
 
-        private static void ParseTestId( string line )
-        {
-            var test = JsonConvert.DeserializeObject<TestId>( line );
-            if ( !_testNames.ContainsKey( test.testID ) )
-                return;
-            var name = _testNames[ test.testID ];
-            _testNames.Remove( test.testID );
+			if ( !string.IsNullOrEmpty( test.error ) )
+				Console.Write( test.error );
 
-            if ( !string.IsNullOrEmpty( test.error ) )
-                Console.Write( test.error );
+			if ( test.messageType == "print" )
+			{
+				Console.WriteLine( test.message );
+				return;
+			}
 
-            if ( test.result != "success" )
-                Console.WriteLine( $"##teamcity[testFailed name='{EscapeName( name )}']" );
-            Console.WriteLine( $"##teamcity[testFinished name='{EscapeName( name )}' duration='{test.time}']" );
 
-            _suites.ForEach( x => x.TestsRemaining-- );
-            foreach ( var suite in _suites.Where( x => x.TestsRemaining == 0 ).OrderByDescending( x => x.Order ).ToList() )
-            {
-                _suites.Remove( suite );
-                Console.WriteLine( $"##teamcity[testSuiteFinished name='{EscapeName( suite.Name )}']" );
-            }
-        }
+			if ( test.result != "success" )
+				Console.WriteLine( $"##teamcity[testFailed name='{EscapeName( name )}']" );
+			Console.WriteLine( $"##teamcity[testFinished name='{EscapeName( name )}' duration='{test.time}']" );
 
-        private static string EscapeName( string name ) => name.Replace( "'", "|'" );
+			_suites.ForEach( x => x.TestsRemaining-- );
+			foreach ( var suite in _suites.Where( x => x.TestsRemaining == 0 ).OrderByDescending( x => x.Order ).ToList() )
+			{
+				_suites.Remove( suite );
+				Console.WriteLine( $"##teamcity[testSuiteFinished name='{EscapeName( suite.Name )}']" );
+			}
+		}
 
-        private static void ParseTest( string line )
-        {
-            var testLine = JsonConvert.DeserializeObject<TestLine>( line );
-            _testNames.Add( testLine.test.id, testLine.test.name );
-            Console.WriteLine( $"##teamcity[testStarted name='{EscapeName( testLine.test.name )}' captureStandardOutput='true']" );
-        }
+		private static string EscapeName( string name ) => name.Replace( "'", "|'" );
 
-        private static void ParseGroup( string line )
-        {
-            var groupLine = JsonConvert.DeserializeObject<GroupLine>( line );
-            var groupName = groupLine.group.name ?? "tests.dart";
+		private static void ParseTest( string line )
+		{
+			var testLine = JsonConvert.DeserializeObject<TestLine>( line );
+			_testNames.Add( testLine.test.id, testLine.test.name );
+			Console.WriteLine( $"##teamcity[testStarted name='{EscapeName( testLine.test.name )}' captureStandardOutput='true']" );
+		}
 
-            Console.WriteLine( $"##teamcity[testSuiteStarted name='{EscapeName( groupName )}']" );
+		private static void ParseGroup( string line )
+		{
+			var groupLine = JsonConvert.DeserializeObject<GroupLine>( line );
+			var groupName = groupLine.group.name ?? "tests.dart";
 
-            _suites.Add( new Suite
-            {
-                GroupId = groupLine.group.id,
-                Name = groupName,
-                TestsRemaining = groupLine.group.testCount
-            } );
-        }
-    }
+			Console.WriteLine( $"##teamcity[testSuiteStarted name='{EscapeName( groupName )}']" );
 
-    public class GroupLine
-    {
-        public Group group { get; set; }
-    }
-
-    public class Group
-    {
-        public int id { get; set; }
-        public string name { get; set; }
-        public int testCount { get; set; }
-    }
-
-    public class TestLine
-    {
-        public Test test { get; set; }
-    }
-
-    public class Test
-    {
-        public int id { get; set; }
-        public string name { get; set; }
-    }
-
-    public class TestId
-    {
-        public int testID { get; set; }
-        public string result { get; set; }
-        public int time { get; set; }
-        public string error { get; set; }
-        public string stackTrace { get; set; }
-    }
-
-    public class ArgumentsParser
-    {
-        public Dictionary<string, string> Parse( params string[] arguments )
-        {
-            var result = new Dictionary<string, string>();
-
-            if ( arguments.Length == 0 )
-                return result;
-
-            var startIndex = arguments.First().StartsWith( "-" ) ? 0 : 1;
-            var length = arguments.Length % 2 == 0 ? arguments.Length : arguments.Length - 1;
-
-            for ( int i = startIndex; i < startIndex + length; i += 2 )
-                result.Add( arguments[ i ].Substring( 1 ), arguments[ i + 1 ] );
-
-            if ( arguments.Length % 2 == 1 )
-            {
-                var value = arguments.First().StartsWith( "-" ) ? arguments[ arguments.Length - 1 ] : arguments[ 0 ];
-                result.Add( "", value );
-            }
-
-            return result;
-        }
-    }
+			_suites.Add( new Suite
+			{
+				GroupId = groupLine.group.id,
+				Name = groupName,
+				TestsRemaining = groupLine.group.testCount
+			} );
+		}
+	}
 }
