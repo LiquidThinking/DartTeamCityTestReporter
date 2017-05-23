@@ -47,6 +47,8 @@ namespace DartTeamCityTestReporter
 				RedirectStandardOutput = true,
 				RedirectStandardError = true,
 				WorkingDirectory = workingDirectory,
+				UseShellExecute = false,
+				CreateNoWindow = true
 			};
 			using ( var process = Process.Start( processStartInfo ) )
 			{
