@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using System.IO;
 
 namespace DartTeamCityTestReporter
 {
@@ -20,7 +21,7 @@ namespace DartTeamCityTestReporter
 
 			var testFile = parsedArguments[ "" ];
 			var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
-			var dartSdk = parsedArguments.ContainsKey( "dsdk" ) ? parsedArguments[ "dsdk" ] : @"file:\\\C:\Program Files\Dart\dart-sdk";
+			var dartSdk = parsedArguments.ContainsKey( "dsdk" ) ? parsedArguments[ "dsdk" ] : @"C:\Program Files\Dart\dart-sdk";
 			var platform = parsedArguments.ContainsKey( "p" ) ? "-p " + parsedArguments[ "p" ] : String.Empty;
 
 			//testFile = "test\\test.dart";
@@ -35,17 +36,16 @@ namespace DartTeamCityTestReporter
 			//testFile = @"test\tests.dart";
 			//workingDirectory = @"D:/LiveScoring/LiveScoring/Packages/LiveScoringCore";
 
-			var arguments = $@"--ignore-unrecognized-flags --checked --trace_service_pause_events ""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json {platform} {testFile}";
+			var arguments = $@"""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json {platform} {testFile}";
 			Console.WriteLine( "Running dart with following arguments: " );
 			Console.WriteLine( arguments );
 
 
 			var processStartInfo = new ProcessStartInfo
 			{
-				FileName = "dart",
+				FileName = Path.Combine(dartSdk, "bin", "dart.exe"),
 				Arguments = arguments,
 				RedirectStandardOutput = true,
-				RedirectStandardError = true,
 				WorkingDirectory = workingDirectory,
 				UseShellExecute = false,
 				CreateNoWindow = true

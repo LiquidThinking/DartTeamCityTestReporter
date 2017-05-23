@@ -2,7 +2,7 @@
   "profiles": {
     "DartTeamCityTestReporter": {
       "commandName": "Project",
-      "commandLineArgs": "-dart dart.exe D:/GitHub/LiveScoring/Client/LiveScoring/test/tests.dart"
+      "commandLineArgs": "-dsdk D:\\dart\\dart-sdk -p dartium -wd \"D:\\LiquidThinking\\LiveScoring\\Client\\LiveScoring\" test\\tests.dart"
     }
   }
 }

@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>dart-tc-test-reporter</id>
-    <version>1.0.0</version>
+    <version>1.0.2</version>
     <title>DartTeamCityTestReporter</title>
     <authors>LiquidThinking</authors>
     <projectUrl>https://github.com/LiquidThinking/DartTeamCityTestReporter</projectUrl>
@@ -11,6 +11,6 @@
     <description>Reports dart test results to teamcity</description>
   </metadata>
   <files>
-	<file src="src\DartTeamCityTestReporter\bin\Debug\net451\win10-x64\publish\*.*" target="tools" />
+	<file src="src\DartTeamCityTestReporter\bin\Debug\net451\publish\*.*" target="tools" />
   </files>
 </package>
