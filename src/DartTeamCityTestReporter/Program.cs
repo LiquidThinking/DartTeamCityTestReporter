@@ -5,7 +5,6 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
-using System.IO;
 
 namespace DartTeamCityTestReporter
 {
@@ -19,40 +18,26 @@ namespace DartTeamCityTestReporter
 		{
 			var parsedArguments = new ArgumentsParser().Parse( args );
 
-			var testFile = parsedArguments[ "" ];
 			var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
-			var dartSdk = parsedArguments.ContainsKey( "dsdk" ) ? parsedArguments[ "dsdk" ] : @"C:\Program Files\Dart\dart-sdk";
-			var platform = parsedArguments.ContainsKey( "p" ) ? "-p " + parsedArguments[ "p" ] : String.Empty;
-
-			//testFile = "test\\test.dart";
-			//workingDirectory = @"D:/LiveScoring/LiveScoring/Server/FixtureStateBuilder";
-			//dartSdk = @"d:/dart/dart-sdk";
-
-			//testFile = @"test\tests.dart";
-			//platform = "-p dartium";
-			//workingDirectory = @"D:/LiveScoring/LiveScoring/Client/LiveScoring";
-
-			//dartSdk = @"d:/dart/dart-sdk";
-			//testFile = @"test\tests.dart";
-			//workingDirectory = @"D:/LiveScoring/LiveScoring/Packages/LiveScoringCore";
-
-			var arguments = $@"""{dartSdk}\bin\snapshots\pub.dart.snapshot"" run test:test -r json {platform} {testFile}";
-			Console.WriteLine( "Running dart with following arguments: " );
-			Console.WriteLine( arguments );
-
+			var command = parsedArguments[ "" ];
 
 			var processStartInfo = new ProcessStartInfo
 			{
-				FileName = Path.Combine(dartSdk, "bin", "dart.exe"),
-				Arguments = arguments,
+				FileName = "cmd.exe",
+				Arguments = "/C " + command,
 				RedirectStandardOutput = true,
+				RedirectStandardError = true,
 				WorkingDirectory = workingDirectory,
 				UseShellExecute = false,
 				CreateNoWindow = true
 			};
 			using ( var process = Process.Start( processStartInfo ) )
 			{
-				process.OutputDataReceived += ( sender, eventArgs ) => ParseOutput( eventArgs.Data );
+				process.OutputDataReceived += ( sender, eventArgs ) => {
+												if ( eventArgs.Data != null && eventArgs.Data.Contains( "was not terminated" ) )
+													process.Kill();
+												ParseOutput( eventArgs.Data );
+											};
 				process.BeginOutputReadLine();
 				process.WaitForExit();
 			}
@@ -61,7 +46,7 @@ namespace DartTeamCityTestReporter
 
 		private static void ParseOutput( string line )
 		{
-			if ( line == null )
+			if ( line == null || !line.StartsWith( "{" ) )
 				return;
 
 			if ( !_seenFirstGroup && !line.StartsWith( "{\"group\"" ) && !line.Contains( "\"name\":null" ) )
