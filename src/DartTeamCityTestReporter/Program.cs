@@ -16,41 +16,52 @@ namespace DartTeamCityTestReporter
 
 		public static void Main( string[] args )
 		{
-			var parsedArguments = new ArgumentsParser().Parse( args );
-
-			var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
-			var command = parsedArguments[ "" ];
-
-			var processStartInfo = new ProcessStartInfo
+			try
 			{
-				FileName = "cmd.exe",
-				Arguments = "/C " + command,
-				RedirectStandardOutput = true,
-				RedirectStandardError = true,
-				WorkingDirectory = workingDirectory,
-				UseShellExecute = false,
-				CreateNoWindow = true
-			};
-			using ( var process = Process.Start( processStartInfo ) )
-			{
-				process.OutputDataReceived += ( sender, eventArgs ) => {
-												if ( eventArgs.Data != null && eventArgs.Data.Contains( "was not terminated" ) )
-													process.Kill();
-												ParseOutput( eventArgs.Data );
-											};
-				process.BeginOutputReadLine();
-				process.WaitForExit();
+				var parsedArguments = new ArgumentsParser().Parse( args );
+
+				var workingDirectory = parsedArguments.ContainsKey( "wd" ) ? parsedArguments[ "wd" ] : "";
+				var command = parsedArguments[ "" ];
+
+				var processStartInfo = new ProcessStartInfo
+				{
+					FileName = "cmd.exe",
+					Arguments = "/C " + command,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true,
+					WorkingDirectory = workingDirectory,
+					UseShellExecute = false,
+					CreateNoWindow = true
+				};
+				using ( var process = Process.Start( processStartInfo ) )
+				{
+					process.OutputDataReceived += ( sender, eventArgs ) => {
+													if ( eventArgs.Data != null && eventArgs.Data.Contains( "was not terminated" ) )
+													{
+														process.Kill();
+														Environment.Exit( 0 );
+													}
+													ParseOutput( eventArgs.Data );
+												};
+					process.BeginOutputReadLine();
+					process.WaitForExit();
+				}
+				Thread.Sleep( 1000 );
 			}
-			Thread.Sleep( 1000 );
+			catch ( Exception ex )
+			{
+				Console.WriteLine( "DartTeamCityTestReporter exited with: " + ex.Message + ", " + ex.StackTrace );
+				Environment.Exit( -1 );
+			}
 		}
 
 		private static void ParseOutput( string line )
 		{
 			if ( line == null || !line.StartsWith( "{" ) )
-				return;
+				Console.WriteLine( line );
 
 			if ( !_seenFirstGroup && !line.StartsWith( "{\"group\"" ) && !line.Contains( "\"name\":null" ) )
-				return;
+				Console.WriteLine( line );
 			_seenFirstGroup = true;
 
 			if ( line.StartsWith( "{\"group\"" ) )
@@ -59,6 +70,17 @@ namespace DartTeamCityTestReporter
 				ParseTest( line );
 			else if ( line.StartsWith( "{\"testID\"" ) )
 				ParseTestId( line );
+		}
+
+		private static string EscapeMessage( string line )
+		{
+			return line
+				.Replace( "|", "||" )
+				.Replace( "'", "|'" )
+				.Replace( "\n", "|n" )
+				.Replace( "\r", "|r" )
+				.Replace( "[", "|[" )
+				.Replace( "]", "|]" );
 		}
 
 		private static void ParseTestId( string line )

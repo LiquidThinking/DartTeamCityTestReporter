@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>dart-tc-test-reporter</id>
-    <version>2.0.0</version>
+    <version>2.0.4</version>
     <title>DartTeamCityTestReporter</title>
     <authors>LiquidThinking</authors>
     <projectUrl>https://github.com/LiquidThinking/DartTeamCityTestReporter</projectUrl>
