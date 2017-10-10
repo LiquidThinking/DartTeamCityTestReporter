@@ -103,6 +103,12 @@ namespace DartTeamCityTestReporter
 				return;
 			}
 
+			if ( test.messageType == "skip" )
+			{
+				Console.WriteLine( $"##teamcity[testIgnored name='{EscapeName( name )}' message='{EscapeMessage( test.message )}']" );
+				return;
+			}
+
 
 			if ( test.result != "success" )
 				Console.WriteLine( $"##teamcity[testFailed name='{EscapeName( name )}']" );
